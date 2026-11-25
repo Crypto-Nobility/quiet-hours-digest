@@ -4,14 +4,15 @@
   "title": "Item Store",
   "description": "Local JSON item store MCP server. Save, get, list, and search items on disk.",
   "repository": {
-    "url": "https://github.com/Crypto-Nobility/item-store",
-    "source": "github"
+    "url": "https://github.com/Crypto-Nobility/quiet-hours-digest",
+    "source": "github",
+    "subfolder": "mcp"
   },
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "@Crypto-Nobility/item-store",
+      "identifier": "quiet-hours-item-store-mcp",
       "version": "1.0.0",
       "transport": {
         "type": "stdio"

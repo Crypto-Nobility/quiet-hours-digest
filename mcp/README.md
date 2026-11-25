@@ -2,18 +2,20 @@
 
 A local JSON item store exposed as a stdio MCP server. Agents can save, get, list, and search items on disk. No network port and no API keys.
 
+Source: https://github.com/Crypto-Nobility/quiet-hours-digest (`mcp/`).
+
 <!-- mcp-name: io.github.Crypto-Nobility/item-store -->
 
 ## Install
 
 ```bash
-npm install -g @Crypto-Nobility/item-store
+npm install -g quiet-hours-item-store-mcp
 ```
 
 Or run without a global install:
 
 ```bash
-npx -y @Crypto-Nobility/item-store
+npx -y quiet-hours-item-store-mcp
 ```
 
 Node.js 18 or later is required.
@@ -27,7 +29,7 @@ Example `mcp.json` / Claude Desktop entry:
   "mcpServers": {
     "item-store": {
       "command": "npx",
-      "args": ["-y", "@Crypto-Nobility/item-store"],
+      "args": ["-y", "quiet-hours-item-store-mcp"],
       "env": {
         "ITEM_STORE_PATH": "/absolute/path/to/store.json"
       }

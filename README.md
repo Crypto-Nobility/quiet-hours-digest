@@ -2,6 +2,8 @@
 
 MIT-licensed templates and a small MCP server. Import or run them yourself. This repository does not collect accounts, payments, or personal data.
 
+Source: https://github.com/Crypto-Nobility/quiet-hours-digest
+
 Questions and bug reports belong in the issue tracker of this repository. There is no other contact channel.
 
 ## Contents

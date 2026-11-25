@@ -1,5 +1,5 @@
 {
-  "name": "@Crypto-Nobility/item-store",
+  "name": "quiet-hours-item-store-mcp",
   "version": "1.0.0",
   "description": "Local JSON item store MCP server. Save, get, list, and search items on disk.",
   "mcpName": "io.github.Crypto-Nobility/item-store",
@@ -29,7 +29,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Crypto-Nobility/item-store.git"
+    "url": "https://github.com/Crypto-Nobility/quiet-hours-digest.git",
+    "directory": "mcp"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.22.0",
