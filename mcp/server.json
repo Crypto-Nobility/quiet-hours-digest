@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Crypto-Nobility/item-store",
+  "title": "Item Store",
+  "description": "Local JSON item store MCP server. Save, get, list, and search items on disk.",
+  "repository": {
+    "url": "https://github.com/Crypto-Nobility/item-store",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@Crypto-Nobility/item-store",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Optional path to the JSON store file. Defaults to ./data/store.json under the working directory.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "ITEM_STORE_PATH"
+        }
+      ]
+    }
+  ]
+}

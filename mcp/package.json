@@ -1,0 +1,38 @@
+{
+  "name": "@Crypto-Nobility/item-store",
+  "version": "1.0.0",
+  "description": "Local JSON item store MCP server. Save, get, list, and search items on disk.",
+  "mcpName": "io.github.Crypto-Nobility/item-store",
+  "type": "module",
+  "bin": {
+    "item-store-mcp": "src/server.js"
+  },
+  "main": "src/server.js",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "server.json"
+  ],
+  "scripts": {
+    "test": "node --test test/store.test.js test/server.smoke.js",
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "item-store"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Crypto-Nobility/item-store.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.25.0"
+  }
+}

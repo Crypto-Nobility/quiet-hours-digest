@@ -1,0 +1,713 @@
+{
+  "name": "Hold non-critical alerts during quiet hours and send a digest",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "maxResults": 1
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {
+          "hook": {
+            "label": "Quiet hours alert inbox — create a Custom webhook and attach it here"
+          }
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "label": "Webhook",
+            "type": "hook",
+            "required": true
+          }
+        ]
+      },
+      "mapper": {}
+    },
+    {
+      "id": 2,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "timezone",
+            "value": "UTC"
+          },
+          {
+            "name": "quiet_start",
+            "value": "22:00"
+          },
+          {
+            "name": "quiet_end",
+            "value": "07:00"
+          },
+          {
+            "name": "critical_severities",
+            "value": "critical,emergency"
+          },
+          {
+            "name": "dedupe_window_minutes",
+            "value": "60"
+          },
+          {
+            "name": "max_held_alerts",
+            "value": "50"
+          },
+          {
+            "name": "alert_url",
+            "value": "https://example.invalid/your-alert-webhook"
+          },
+          {
+            "name": "title",
+            "value": "{{trim(if(1.title; 1.title; \"\"))}}"
+          },
+          {
+            "name": "message",
+            "value": "{{trim(if(1.message; 1.message; \"\"))}}"
+          },
+          {
+            "name": "severity",
+            "value": "{{lower(trim(if(1.severity; 1.severity; \"info\")))}}"
+          },
+          {
+            "name": "source",
+            "value": "{{if(1.source; 1.source; \"\")}}"
+          },
+          {
+            "name": "alert_id",
+            "value": "{{trim(if(1.id; 1.id; \"\"))}}"
+          },
+          {
+            "name": "fingerprint",
+            "value": "{{if(trim(if(1.id; 1.id; \"\")); \"id:\" + trim(1.id); \"h:\" + if(1.source; 1.source; \"\") + \"|\" + trim(if(1.title; 1.title; \"\")) + \"|\" + trim(if(1.message; 1.message; \"\")))}}"
+          },
+          {
+            "name": "start_mins",
+            "value": "{{parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2))}}"
+          },
+          {
+            "name": "end_mins",
+            "value": "{{parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2))}}"
+          },
+          {
+            "name": "now_mins",
+            "value": "{{parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))}}"
+          },
+          {
+            "name": "is_quiet",
+            "value": "{{if((parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2))) = (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2))); false; if((parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2))); if(and((parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) >= (parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2)));(parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2)))); true; false); if(or((parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) >= (parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2)));(parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2)))); true; false)))}}"
+          },
+          {
+            "name": "is_critical",
+            "value": "{{if(length(trim(severity)) > 0; if(contains(lower(critical_severities); severity); true; false); false)}}"
+          },
+          {
+            "name": "has_text",
+            "value": "{{if(or(length(trim(if(1.title; 1.title; \"\"))) > 0; length(trim(if(1.message; 1.message; \"\"))) > 0); true; false)}}"
+          },
+          {
+            "name": "url_ready",
+            "value": "{{if(and(length(alert_url) > 0; not(contains(alert_url; \"example.invalid\"))); true; false)}}"
+          },
+          {
+            "name": "now_unix",
+            "value": "{{formatDate(now; \"X\")}}"
+          },
+          {
+            "name": "received_at",
+            "value": "{{formatDate(now; \"YYYY-MM-DDTHH:mm:ssZ\")}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "mapper": null,
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      "routes": [
+        {
+          "filter": {
+            "name": "Reject placeholder URL or missing title/message",
+            "conditions": [
+              [
+                {
+                  "a": "{{2.url_ready}}",
+                  "o": "boolean:false"
+                }
+              ],
+              [
+                {
+                  "a": "{{2.has_text}}",
+                  "o": "boolean:false"
+                }
+              ]
+            ]
+          },
+          "flow": [
+            {
+              "id": 4,
+              "module": "util:SetVariables",
+              "version": 1,
+              "parameters": {},
+              "metadata": {
+                "designer": {
+                  "x": 900,
+                  "y": -250
+                }
+              },
+              "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                  {
+                    "name": "outcome",
+                    "value": "reject"
+                  },
+                  {
+                    "name": "action",
+                    "value": "reject"
+                  },
+                  {
+                    "name": "reason",
+                    "value": "{{if(2.url_ready; if(2.has_text; \"ok\"; \"missing_title_or_message\"); \"alert_url_is_placeholder\")}}"
+                  },
+                  {
+                    "name": "fingerprint",
+                    "value": "{{2.fingerprint}}"
+                  },
+                  {
+                    "name": "held_count",
+                    "value": ""
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "filter": {
+            "name": "Valid alert",
+            "conditions": [
+              [
+                {
+                  "a": "{{2.url_ready}}",
+                  "o": "boolean:true"
+                },
+                {
+                  "a": "{{2.has_text}}",
+                  "o": "boolean:true"
+                }
+              ]
+            ]
+          },
+          "flow": [
+            {
+              "id": 5,
+              "module": "datastore:ActionExists",
+              "version": 1,
+              "parameters": {},
+              "metadata": {
+                "designer": {
+                  "x": 900,
+                  "y": 80
+                },
+                "restore": {
+                  "datastore": {
+                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                  }
+                }
+              },
+              "mapper": {
+                "key": "dedupe:{{2.fingerprint}}"
+              }
+            },
+            {
+              "id": 6,
+              "module": "builtin:BasicRouter",
+              "version": 1,
+              "mapper": null,
+              "metadata": {
+                "designer": {
+                  "x": 1200,
+                  "y": 80
+                }
+              },
+              "routes": [
+                {
+                  "filter": {
+                    "name": "Duplicate inside the dedupe window",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{5.exists}}",
+                          "o": "boolean:true"
+                        },
+                        {
+                          "a": "{{5.ts}}",
+                          "b": "{{parseNumber(2.now_unix) - parseNumber(2.dedupe_window_minutes) * 60}}",
+                          "o": "number:greater"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 7,
+                      "module": "util:SetVariables",
+                      "version": 1,
+                      "parameters": {},
+                      "metadata": {
+                        "designer": {
+                          "x": 1500,
+                          "y": -80
+                        }
+                      },
+                      "mapper": {
+                        "scope": "roundtrip",
+                        "variables": [
+                          {
+                            "name": "outcome",
+                            "value": "skip_duplicate"
+                          },
+                          {
+                            "name": "action",
+                            "value": "skip_duplicate"
+                          },
+                          {
+                            "name": "reason",
+                            "value": "duplicate_in_window"
+                          },
+                          {
+                            "name": "fingerprint",
+                            "value": "{{2.fingerprint}}"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "filter": {
+                    "name": "New or expired fingerprint",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{5.exists}}",
+                          "o": "boolean:false"
+                        }
+                      ],
+                      [
+                        {
+                          "a": "{{5.exists}}",
+                          "o": "boolean:true"
+                        },
+                        {
+                          "a": "{{5.ts}}",
+                          "b": "{{parseNumber(2.now_unix) - parseNumber(2.dedupe_window_minutes) * 60}}",
+                          "o": "number:lessorequal"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 8,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "mapper": null,
+                      "metadata": {
+                        "designer": {
+                          "x": 1500,
+                          "y": 200
+                        }
+                      },
+                      "routes": [
+                        {
+                          "filter": {
+                            "name": "Hold non-critical alert during quiet hours",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{2.is_critical}}",
+                                  "o": "boolean:false"
+                                },
+                                {
+                                  "a": "{{2.is_quiet}}",
+                                  "o": "boolean:true"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 9,
+                              "module": "datastore:ActionAddUpdate",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 1800,
+                                  "y": 80
+                                },
+                                "restore": {
+                                  "datastore": {
+                                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                                  }
+                                }
+                              },
+                              "mapper": {
+                                "key": "held:{{2.fingerprint}}:{{2.now_unix}}",
+                                "kind": "held",
+                                "fingerprint": "{{2.fingerprint}}",
+                                "received_at": "{{2.received_at}}",
+                                "severity": "{{2.severity}}",
+                                "source": "{{2.source}}",
+                                "title": "{{if(length(2.title) > 0; 2.title; 2.message)}}",
+                                "message": "{{2.message}}",
+                                "alert_id": "{{2.alert_id}}",
+                                "ts": "{{2.now_unix}}"
+                              }
+                            },
+                            {
+                              "id": 10,
+                              "module": "datastore:ActionAddUpdate",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 2100,
+                                  "y": 80
+                                },
+                                "restore": {
+                                  "datastore": {
+                                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                                  }
+                                }
+                              },
+                              "mapper": {
+                                "key": "dedupe:{{2.fingerprint}}",
+                                "kind": "dedupe",
+                                "fingerprint": "{{2.fingerprint}}",
+                                "ts": "{{2.now_unix}}"
+                              }
+                            },
+                            {
+                              "id": 11,
+                              "module": "util:SetVariables",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 2400,
+                                  "y": 80
+                                }
+                              },
+                              "mapper": {
+                                "scope": "roundtrip",
+                                "variables": [
+                                  {
+                                    "name": "outcome",
+                                    "value": "hold"
+                                  },
+                                  {
+                                    "name": "action",
+                                    "value": "hold"
+                                  },
+                                  {
+                                    "name": "reason",
+                                    "value": "quiet_hours_non_critical"
+                                  },
+                                  {
+                                    "name": "fingerprint",
+                                    "value": "{{2.fingerprint}}"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "filter": {
+                            "name": "Send immediately (critical or outside quiet hours)",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{2.is_critical}}",
+                                  "o": "boolean:true"
+                                }
+                              ],
+                              [
+                                {
+                                  "a": "{{2.is_quiet}}",
+                                  "o": "boolean:false"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 12,
+                              "module": "datastore:ActionAddUpdate",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 1800,
+                                  "y": 360
+                                },
+                                "restore": {
+                                  "datastore": {
+                                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                                  }
+                                }
+                              },
+                              "mapper": {
+                                "key": "dedupe:{{2.fingerprint}}",
+                                "kind": "dedupe",
+                                "fingerprint": "{{2.fingerprint}}",
+                                "ts": "{{2.now_unix}}"
+                              }
+                            },
+                            {
+                              "id": 13,
+                              "module": "http:ActionSendData",
+                              "version": 3,
+                              "parameters": {
+                                "handleErrors": false
+                              },
+                              "metadata": {
+                                "designer": {
+                                  "x": 2100,
+                                  "y": 360
+                                },
+                                "restore": {
+                                  "method": {
+                                    "mode": "chose",
+                                    "label": "POST"
+                                  },
+                                  "qs": {
+                                    "mode": "chose",
+                                    "items": []
+                                  },
+                                  "headers": {
+                                    "mode": "chose",
+                                    "items": [
+                                      "undefined"
+                                    ]
+                                  },
+                                  "bodyType": {
+                                    "label": "Raw"
+                                  }
+                                }
+                              },
+                              "mapper": {
+                                "url": "{{2.alert_url}}",
+                                "method": "post",
+                                "qs": [],
+                                "headers": [
+                                  {
+                                    "name": "Content-Type",
+                                    "value": "application/json"
+                                  }
+                                ],
+                                "authUser": "",
+                                "authPass": "",
+                                "timeout": "15",
+                                "shareCookies": false,
+                                "rejectUnauthorized": true,
+                                "followRedirect": true,
+                                "useQuerystring": false,
+                                "gzip": true,
+                                "parseResponse": true,
+                                "bodyType": "raw",
+                                "contentType": "application/json",
+                                "data": "{\n  \"type\": \"single_alert\",\n  \"timezone\": \"{{2.timezone}}\",\n  \"quiet_hours\": {{if(2.is_quiet; true; false)}},\n  \"alert\": {\n    \"fingerprint\": \"{{2.fingerprint}}\",\n    \"received_at\": \"{{2.received_at}}\",\n    \"severity\": \"{{2.severity}}\",\n    \"source\": \"{{2.source}}\",\n    \"title\": \"{{if(length(2.title) > 0; 2.title; 2.message)}}\",\n    \"message\": \"{{2.message}}\",\n    \"id\": \"{{2.alert_id}}\"\n  }\n}"
+                              }
+                            },
+                            {
+                              "id": 14,
+                              "module": "builtin:BasicRouter",
+                              "version": 1,
+                              "mapper": null,
+                              "metadata": {
+                                "designer": {
+                                  "x": 2400,
+                                  "y": 360
+                                }
+                              },
+                              "routes": [
+                                {
+                                  "filter": {
+                                    "name": "Delivered",
+                                    "conditions": [
+                                      [
+                                        {
+                                          "a": "{{13.statusCode}}",
+                                          "b": "200",
+                                          "o": "number:greaterorequal"
+                                        },
+                                        {
+                                          "a": "{{13.statusCode}}",
+                                          "b": "300",
+                                          "o": "number:less"
+                                        }
+                                      ]
+                                    ]
+                                  },
+                                  "flow": [
+                                    {
+                                      "id": 15,
+                                      "module": "util:SetVariables",
+                                      "version": 1,
+                                      "parameters": {},
+                                      "metadata": {
+                                        "designer": {
+                                          "x": 2700,
+                                          "y": 280
+                                        }
+                                      },
+                                      "mapper": {
+                                        "scope": "roundtrip",
+                                        "variables": [
+                                          {
+                                            "name": "outcome",
+                                            "value": "delivered"
+                                          },
+                                          {
+                                            "name": "action",
+                                            "value": "send_now"
+                                          },
+                                          {
+                                            "name": "reason",
+                                            "value": "{{if(2.is_critical; \"critical_severity\"; \"outside_quiet_hours\")}}"
+                                          },
+                                          {
+                                            "name": "fingerprint",
+                                            "value": "{{2.fingerprint}}"
+                                          },
+                                          {
+                                            "name": "http_status",
+                                            "value": "{{13.statusCode}}"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "filter": {
+                                    "name": "Delivery failed",
+                                    "conditions": [
+                                      [
+                                        {
+                                          "a": "{{13.statusCode}}",
+                                          "b": "200",
+                                          "o": "number:less"
+                                        }
+                                      ],
+                                      [
+                                        {
+                                          "a": "{{13.statusCode}}",
+                                          "b": "300",
+                                          "o": "number:greaterorequal"
+                                        }
+                                      ]
+                                    ]
+                                  },
+                                  "flow": [
+                                    {
+                                      "id": 16,
+                                      "module": "util:SetVariables",
+                                      "version": 1,
+                                      "parameters": {},
+                                      "metadata": {
+                                        "designer": {
+                                          "x": 2700,
+                                          "y": 480
+                                        }
+                                      },
+                                      "mapper": {
+                                        "scope": "roundtrip",
+                                        "variables": [
+                                          {
+                                            "name": "outcome",
+                                            "value": "delivery_failed"
+                                          },
+                                          {
+                                            "name": "action",
+                                            "value": "send_now"
+                                          },
+                                          {
+                                            "name": "reason",
+                                            "value": "{{if(2.is_critical; \"critical_severity\"; \"outside_quiet_hours\")}}"
+                                          },
+                                          {
+                                            "name": "fingerprint",
+                                            "value": "{{2.fingerprint}}"
+                                          },
+                                          {
+                                            "name": "http_status",
+                                            "value": "{{13.statusCode}}"
+                                          },
+                                          {
+                                            "name": "note",
+                                            "value": "The notification request did not return a 2xx status. The payload is not automatically re-queued."
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}

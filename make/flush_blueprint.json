@@ -1,0 +1,506 @@
+{
+  "name": "Flush held alerts after quiet hours and send a digest",
+  "flow": [
+    {
+      "id": 1,
+      "module": "builtin:BasicScheduler",
+      "version": 1,
+      "parameters": {
+        "type": "indefinitely",
+        "interval": 900
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "mapper": {}
+    },
+    {
+      "id": 2,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "timezone",
+            "value": "UTC"
+          },
+          {
+            "name": "quiet_start",
+            "value": "22:00"
+          },
+          {
+            "name": "quiet_end",
+            "value": "07:00"
+          },
+          {
+            "name": "alert_url",
+            "value": "https://example.invalid/your-alert-webhook"
+          },
+          {
+            "name": "is_quiet",
+            "value": "{{if((parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2))) = (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2))); false; if((parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2))); if(and((parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) >= (parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2)));(parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2)))); true; false); if(or((parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) >= (parseNumber(get(split(quiet_start; \":\"); 1)) * 60 + parseNumber(get(split(quiet_start; \":\"); 2)));(parseNumber(formatDate(now; \"HH\"; timezone)) * 60 + parseNumber(formatDate(now; \"mm\"; timezone))) < (parseNumber(get(split(quiet_end; \":\"); 1)) * 60 + parseNumber(get(split(quiet_end; \":\"); 2)))); true; false)))}}"
+          },
+          {
+            "name": "url_ready",
+            "value": "{{if(and(length(alert_url) > 0; not(contains(alert_url; \"example.invalid\"))); true; false)}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "mapper": null,
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      "routes": [
+        {
+          "filter": {
+            "name": "Still in quiet hours or placeholder URL",
+            "conditions": [
+              [
+                {
+                  "a": "{{2.is_quiet}}",
+                  "o": "boolean:true"
+                }
+              ],
+              [
+                {
+                  "a": "{{2.url_ready}}",
+                  "o": "boolean:false"
+                }
+              ]
+            ]
+          },
+          "flow": [
+            {
+              "id": 4,
+              "module": "util:SetVariables",
+              "version": 1,
+              "parameters": {},
+              "metadata": {
+                "designer": {
+                  "x": 900,
+                  "y": -200
+                }
+              },
+              "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                  {
+                    "name": "outcome",
+                    "value": "noop"
+                  },
+                  {
+                    "name": "action",
+                    "value": "noop"
+                  },
+                  {
+                    "name": "reason",
+                    "value": "{{if(2.url_ready; \"still_in_quiet_hours\"; \"alert_url_is_placeholder\")}}"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "filter": {
+            "name": "Quiet hours have ended",
+            "conditions": [
+              [
+                {
+                  "a": "{{2.is_quiet}}",
+                  "o": "boolean:false"
+                },
+                {
+                  "a": "{{2.url_ready}}",
+                  "o": "boolean:true"
+                }
+              ]
+            ]
+          },
+          "flow": [
+            {
+              "id": 5,
+              "module": "datastore:ActionSearch",
+              "version": 1,
+              "parameters": {},
+              "metadata": {
+                "designer": {
+                  "x": 900,
+                  "y": 160
+                },
+                "restore": {
+                  "datastore": {
+                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                  }
+                }
+              },
+              "mapper": {
+                "filter": [
+                  {
+                    "a": "kind",
+                    "b": "held",
+                    "o": "text:equal"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            {
+              "id": 6,
+              "module": "builtin:BasicAggregator",
+              "version": 1,
+              "parameters": {
+                "feeder": 5
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1200,
+                  "y": 160
+                }
+              },
+              "mapper": {
+                "scope": "all"
+              }
+            },
+            {
+              "id": 7,
+              "module": "builtin:BasicRouter",
+              "version": 1,
+              "mapper": null,
+              "metadata": {
+                "designer": {
+                  "x": 1500,
+                  "y": 160
+                }
+              },
+              "routes": [
+                {
+                  "filter": {
+                    "name": "Buffer empty",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{6.bundleLength}}",
+                          "b": "0",
+                          "o": "number:equal"
+                        }
+                      ],
+                      [
+                        {
+                          "a": "{{6.bundleLength}}",
+                          "o": "notexist"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 8,
+                      "module": "util:SetVariables",
+                      "version": 1,
+                      "parameters": {},
+                      "metadata": {
+                        "designer": {
+                          "x": 1800,
+                          "y": 40
+                        }
+                      },
+                      "mapper": {
+                        "scope": "roundtrip",
+                        "variables": [
+                          {
+                            "name": "outcome",
+                            "value": "noop"
+                          },
+                          {
+                            "name": "action",
+                            "value": "noop"
+                          },
+                          {
+                            "name": "reason",
+                            "value": "buffer_empty"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "filter": {
+                    "name": "Send digest",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{6.bundleLength}}",
+                          "b": "0",
+                          "o": "number:greater"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 9,
+                      "module": "http:ActionSendData",
+                      "version": 3,
+                      "parameters": {
+                        "handleErrors": false
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 1800,
+                          "y": 280
+                        },
+                        "restore": {
+                          "method": {
+                            "mode": "chose",
+                            "label": "POST"
+                          },
+                          "qs": {
+                            "mode": "chose",
+                            "items": []
+                          },
+                          "headers": {
+                            "mode": "chose",
+                            "items": [
+                              "undefined"
+                            ]
+                          },
+                          "bodyType": {
+                            "label": "Raw"
+                          }
+                        }
+                      },
+                      "mapper": {
+                        "url": "{{2.alert_url}}",
+                        "method": "post",
+                        "qs": [],
+                        "headers": [
+                          {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "authUser": "",
+                        "authPass": "",
+                        "timeout": "15",
+                        "shareCookies": false,
+                        "rejectUnauthorized": true,
+                        "followRedirect": true,
+                        "useQuerystring": false,
+                        "gzip": true,
+                        "parseResponse": true,
+                        "bodyType": "raw",
+                        "contentType": "application/json",
+                        "data": "{\n  \"type\": \"quiet_hours_digest\",\n  \"timezone\": \"{{2.timezone}}\",\n  \"count\": {{6.bundleLength}},\n  \"alerts\": {{toJSON(6.array)}}\n}"
+                      }
+                    },
+                    {
+                      "id": 10,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "mapper": null,
+                      "metadata": {
+                        "designer": {
+                          "x": 2100,
+                          "y": 280
+                        }
+                      },
+                      "routes": [
+                        {
+                          "filter": {
+                            "name": "Delivered — clear held records",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{9.statusCode}}",
+                                  "b": "200",
+                                  "o": "number:greaterorequal"
+                                },
+                                {
+                                  "a": "{{9.statusCode}}",
+                                  "b": "300",
+                                  "o": "number:less"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 11,
+                              "module": "builtin:BasicFeeder",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 2400,
+                                  "y": 200
+                                }
+                              },
+                              "mapper": {
+                                "array": "{{6.array}}"
+                              }
+                            },
+                            {
+                              "id": 12,
+                              "module": "datastore:ActionDelete",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 2700,
+                                  "y": 200
+                                },
+                                "restore": {
+                                  "datastore": {
+                                    "label": "Quiet hours buffer — create a Data Store with this name and attach it here"
+                                  }
+                                }
+                              },
+                              "mapper": {
+                                "key": "{{11.key}}"
+                              }
+                            },
+                            {
+                              "id": 13,
+                              "module": "util:SetVariables",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 3000,
+                                  "y": 200
+                                }
+                              },
+                              "mapper": {
+                                "scope": "roundtrip",
+                                "variables": [
+                                  {
+                                    "name": "outcome",
+                                    "value": "delivered"
+                                  },
+                                  {
+                                    "name": "action",
+                                    "value": "send_digest"
+                                  },
+                                  {
+                                    "name": "reason",
+                                    "value": "quiet_hours_ended"
+                                  },
+                                  {
+                                    "name": "http_status",
+                                    "value": "{{9.statusCode}}"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "filter": {
+                            "name": "Delivery failed — keep held records",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{9.statusCode}}",
+                                  "b": "200",
+                                  "o": "number:less"
+                                }
+                              ],
+                              [
+                                {
+                                  "a": "{{9.statusCode}}",
+                                  "b": "300",
+                                  "o": "number:greaterorequal"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 14,
+                              "module": "util:SetVariables",
+                              "version": 1,
+                              "parameters": {},
+                              "metadata": {
+                                "designer": {
+                                  "x": 2400,
+                                  "y": 400
+                                }
+                              },
+                              "mapper": {
+                                "scope": "roundtrip",
+                                "variables": [
+                                  {
+                                    "name": "outcome",
+                                    "value": "delivery_failed"
+                                  },
+                                  {
+                                    "name": "action",
+                                    "value": "send_digest"
+                                  },
+                                  {
+                                    "name": "reason",
+                                    "value": "quiet_hours_ended"
+                                  },
+                                  {
+                                    "name": "http_status",
+                                    "value": "{{9.statusCode}}"
+                                  },
+                                  {
+                                    "name": "note",
+                                    "value": "The digest request did not return a 2xx status. Held alerts were not cleared."
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}

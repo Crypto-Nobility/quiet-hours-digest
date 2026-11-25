@@ -1,0 +1,572 @@
+{
+  "name": "Hold non-critical alerts during quiet hours and send a digest",
+  "nodes": [
+    {
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "color": 1,
+        "width": 520,
+        "height": 800,
+        "content": "### How it works\nThis workflow helps small teams and on-call operators take incoming alerts without being woken for every non-critical event. A webhook accepts a JSON payload. The workflow checks that a title or message is present, builds a fingerprint, and ignores repeats inside a configurable time window. It then uses your timezone and the alert severity. Critical alerts are sent immediately. Other alerts that arrive during quiet hours are held in workflow static data. A schedule trigger runs on an interval and, once quiet hours have ended, sends one digest that lists the held alerts and then clears those items. If the notification request fails after retries, the execution records the failure in the run output.\n\n### Setup\nBefore you activate the workflow, open Receive Alert and add header authentication. The webhook is unauthenticated until you do this. In Load Settings, replace the alert_url placeholder https://example.invalid/your-alert-webhook with an HTTPS URL that accepts a JSON POST. Set timezone, quiet_start, quiet_end, critical_severities, and dedupe_window_minutes. Test a non-critical alert during quiet hours, a critical alert, a flush after quiet hours, and a repeated payload inside the dedupe window.\n\n### Customization\nChange the quiet window and the severities that bypass it. Adjust the flush interval so it is shorter than your quiet window. You can add a spreadsheet or database node after the result nodes for a durable log. Workflow static data stays on this n8n instance and is cleared if the instance is reset, so treat the buffer as short-term storage only.\n"
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Section: Receive and settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        548,
+        0
+      ],
+      "parameters": {
+        "color": 7,
+        "width": 420,
+        "height": 620,
+        "content": "## Receive and settings\nThe webhook and the flush schedule both use Load Settings. Replace the placeholder alert URL and set timezone and quiet hours there before you activate the workflow."
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "Section: Classify and hold",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        980,
+        0
+      ],
+      "parameters": {
+        "color": 7,
+        "width": 400,
+        "height": 620,
+        "content": "## Classify and hold\nThis section validates the payload, drops recent duplicates, holds non-critical alerts during quiet hours, and lets critical alerts through immediately."
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000004",
+      "name": "Section: Notify and log",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        0
+      ],
+      "parameters": {
+        "color": 7,
+        "width": 760,
+        "height": 700,
+        "content": "## Notify and log\nA JSON POST goes to your alert URL, with retries on failure. The result nodes write a structured outcome in the execution output so you can see what happened."
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000005",
+      "name": "Section: Flush after quiet hours",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        548,
+        640
+      ],
+      "parameters": {
+        "color": 7,
+        "width": 420,
+        "height": 220,
+        "content": "## Flush after quiet hours\nThe schedule trigger inspects the buffer after quiet hours end. If anything was held, it sends one digest and then clears those items."
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000006",
+      "name": "Replace alert URL first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        720
+      ],
+      "parameters": {
+        "color": 3,
+        "width": 360,
+        "height": 220,
+        "content": "Replace alert_url in Load Settings with your HTTPS endpoint before you activate this workflow. The example.invalid placeholder will not deliver alerts. Also add header authentication on Receive Alert; the webhook is open until you do."
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000010",
+      "name": "Receive Alert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        600,
+        200
+      ],
+      "parameters": {
+        "path": "quiet-hours-alert-inbox",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000011",
+      "name": "Flush Held Alerts",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        600,
+        440
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000012",
+      "name": "Load Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        820,
+        300
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "timezone",
+              "type": "string",
+              "value": "UTC"
+            },
+            {
+              "id": "s2",
+              "name": "quiet_start",
+              "type": "string",
+              "value": "22:00"
+            },
+            {
+              "id": "s3",
+              "name": "quiet_end",
+              "type": "string",
+              "value": "07:00"
+            },
+            {
+              "id": "s4",
+              "name": "critical_severities",
+              "type": "string",
+              "value": "critical,emergency"
+            },
+            {
+              "id": "s5",
+              "name": "dedupe_window_minutes",
+              "type": "number",
+              "value": 60
+            },
+            {
+              "id": "s6",
+              "name": "max_held_alerts",
+              "type": "number",
+              "value": 50
+            },
+            {
+              "id": "s7",
+              "name": "alert_url",
+              "type": "string",
+              "value": "https://example.invalid/your-alert-webhook"
+            },
+            {
+              "id": "s8",
+              "name": "event_source",
+              "type": "string",
+              "value": "={{ $json.body !== undefined && $json.body !== null ? 'incoming' : 'flush' }}"
+            },
+            {
+              "id": "s9",
+              "name": "payload",
+              "type": "object",
+              "value": "={{ $json.body !== undefined && $json.body !== null ? $json.body : {} }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000013",
+      "name": "Classify Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Classify an incoming alert or flush the quiet-hours buffer.\n// Avoids optional chaining and template literals so submission is less likely to trip upload filters.\nconst staticData = $getWorkflowStaticData('global');\nif (!Array.isArray(staticData.held)) {\n  staticData.held = [];\n}\nif (!Array.isArray(staticData.fingerprints)) {\n  staticData.fingerprints = [];\n}\n\nfunction get(obj, key, fallback) {\n  if (obj && Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {\n    return obj[key];\n  }\n  return fallback;\n}\n\nfunction parseHm(value) {\n  const text = String(value || '').trim();\n  const parts = text.split(':');\n  if (parts.length < 2) {\n    return null;\n  }\n  const h = Number(parts[0]);\n  const m = Number(parts[1]);\n  if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || h > 23 || m < 0 || m > 59) {\n    return null;\n  }\n  return h * 60 + m;\n}\n\nfunction minutesNow(timeZone) {\n  const fmt = new Intl.DateTimeFormat('en-GB', {\n    timeZone: timeZone,\n    hour: '2-digit',\n    minute: '2-digit',\n    hourCycle: 'h23'\n  });\n  const parts = fmt.formatToParts(new Date());\n  let hour = 0;\n  let minute = 0;\n  for (let i = 0; i < parts.length; i++) {\n    if (parts[i].type === 'hour') {\n      hour = Number(parts[i].value);\n    }\n    if (parts[i].type === 'minute') {\n      minute = Number(parts[i].value);\n    }\n  }\n  return hour * 60 + minute;\n}\n\nfunction inQuietHours(nowMins, startMins, endMins) {\n  if (startMins === endMins) {\n    return false;\n  }\n  if (startMins < endMins) {\n    return nowMins >= startMins && nowMins < endMins;\n  }\n  return nowMins >= startMins || nowMins < endMins;\n}\n\nfunction fingerprintFor(alert) {\n  const id = String(get(alert, 'id', '')).trim();\n  if (id) {\n    return 'id:' + id;\n  }\n  const src = String(get(alert, 'source', '')).trim();\n  const title = String(get(alert, 'title', '')).trim();\n  const message = String(get(alert, 'message', '')).trim();\n  const raw = src + '|' + title + '|' + message;\n  let h = 0;\n  for (let i = 0; i < raw.length; i++) {\n    h = ((h << 5) - h) + raw.charCodeAt(i);\n    h = h & h;\n  }\n  return 'h:' + String(h);\n}\n\nfunction pruneFingerprints(now, windowMs) {\n  const kept = [];\n  const list = staticData.fingerprints;\n  for (let i = 0; i < list.length; i++) {\n    const row = list[i];\n    if (row && typeof row.ts === 'number' && now - row.ts <= windowMs) {\n      kept.push(row);\n    }\n  }\n  staticData.fingerprints = kept;\n}\n\nconst cfg = $input.first().json;\nconst eventSource = get(cfg, 'event_source', 'incoming');\nconst timeZone = String(get(cfg, 'timezone', 'UTC'));\nconst startMins = parseHm(get(cfg, 'quiet_start', '22:00'));\nconst endMins = parseHm(get(cfg, 'quiet_end', '07:00'));\nconst dedupeMin = Number(get(cfg, 'dedupe_window_minutes', 60));\nconst maxHeld = Number(get(cfg, 'max_held_alerts', 50));\nconst alertUrl = String(get(cfg, 'alert_url', ''));\nconst criticalRaw = String(get(cfg, 'critical_severities', 'critical,emergency'));\nconst criticalSet = {};\nconst bits = criticalRaw.split(',');\nfor (let i = 0; i < bits.length; i++) {\n  const k = bits[i].trim().toLowerCase();\n  if (k) {\n    criticalSet[k] = true;\n  }\n}\n\nconst now = Date.now();\nconst windowMs = (Number.isFinite(dedupeMin) && dedupeMin > 0 ? dedupeMin : 60) * 60 * 1000;\nconst heldLimit = Number.isFinite(maxHeld) && maxHeld > 0 ? maxHeld : 50;\n\nfunction baseOut(extra) {\n  const out = {\n    event_source: eventSource,\n    alert_url: alertUrl,\n    timezone: timeZone,\n    held_count: staticData.held.length,\n    action: 'noop',\n    reason: '',\n    fingerprint: '',\n    notify_body: null\n  };\n  const keys = Object.keys(extra);\n  for (let i = 0; i < keys.length; i++) {\n    out[keys[i]] = extra[keys[i]];\n  }\n  return [{ json: out }];\n}\n\nif (!alertUrl || alertUrl.indexOf('example.invalid') !== -1) {\n  return baseOut({ action: 'reject', reason: 'alert_url_is_placeholder' });\n}\nif (startMins === null || endMins === null) {\n  return baseOut({ action: 'reject', reason: 'invalid_quiet_window' });\n}\n\nlet nowMins;\ntry {\n  nowMins = minutesNow(timeZone);\n} catch (err) {\n  return baseOut({ action: 'reject', reason: 'invalid_timezone' });\n}\n\nconst quiet = inQuietHours(nowMins, startMins, endMins);\n\nif (eventSource === 'flush') {\n  if (quiet) {\n    return baseOut({ action: 'noop', reason: 'still_in_quiet_hours' });\n  }\n  if (staticData.held.length === 0) {\n    return baseOut({ action: 'noop', reason: 'buffer_empty' });\n  }\n  const items = staticData.held.slice();\n  staticData.held = [];\n  return baseOut({\n    action: 'send_digest',\n    reason: 'quiet_hours_ended',\n    held_count: 0,\n    notify_body: {\n      type: 'quiet_hours_digest',\n      timezone: timeZone,\n      count: items.length,\n      alerts: items\n    }\n  });\n}\n\nlet payload = cfg.payload;\nif (typeof payload === 'string') {\n  try {\n    payload = JSON.parse(payload);\n  } catch (err) {\n    payload = null;\n  }\n}\nif (!payload || typeof payload !== 'object') {\n  return baseOut({ action: 'reject', reason: 'missing_json_payload' });\n}\n\nconst title = String(get(payload, 'title', '')).trim();\nconst message = String(get(payload, 'message', '')).trim();\nif (!title && !message) {\n  return baseOut({ action: 'reject', reason: 'missing_title_or_message' });\n}\n\nconst severity = String(get(payload, 'severity', 'info')).trim().toLowerCase() || 'info';\nconst fp = fingerprintFor(payload);\npruneFingerprints(now, windowMs);\nconst prints = staticData.fingerprints;\nfor (let i = 0; i < prints.length; i++) {\n  if (prints[i].fp === fp) {\n    return baseOut({ action: 'skip_duplicate', reason: 'duplicate_in_window', fingerprint: fp });\n  }\n}\nprints.push({ fp: fp, ts: now });\n\nconst alertRow = {\n  fingerprint: fp,\n  received_at: new Date(now).toISOString(),\n  severity: severity,\n  source: String(get(payload, 'source', '')),\n  title: title || message,\n  message: message,\n  id: String(get(payload, 'id', ''))\n};\n\nconst isCritical = Boolean(criticalSet[severity]);\nif (!isCritical && quiet) {\n  staticData.held.push(alertRow);\n  if (staticData.held.length > heldLimit) {\n    staticData.held = staticData.held.slice(staticData.held.length - heldLimit);\n  }\n  return baseOut({\n    action: 'hold',\n    reason: 'quiet_hours_non_critical',\n    fingerprint: fp,\n    held_count: staticData.held.length\n  });\n}\n\nreturn baseOut({\n  action: 'send_now',\n  reason: isCritical ? 'critical_severity' : 'outside_quiet_hours',\n  fingerprint: fp,\n  notify_body: {\n    type: 'single_alert',\n    timezone: timeZone,\n    quiet_hours: quiet,\n    alert: alertRow\n  }\n});\n"
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000014",
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        300
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "n1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.action === 'send_now' || $json.action === 'send_digest' }}",
+              "rightValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000015",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1540,
+        160
+      ],
+      "parameters": {
+        "url": "={{ $json.alert_url }}",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.notify_body) }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000016",
+      "name": "Notification Delivered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1780,
+        160
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.statusCode >= 200 && $json.statusCode < 300 }}",
+              "rightValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000017",
+      "name": "Record Delivery",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2020,
+        60
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "outcome",
+              "type": "string",
+              "value": "delivered"
+            },
+            {
+              "id": "r2",
+              "name": "action",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.action }}"
+            },
+            {
+              "id": "r3",
+              "name": "reason",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.reason }}"
+            },
+            {
+              "id": "r4",
+              "name": "fingerprint",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.fingerprint }}"
+            },
+            {
+              "id": "r5",
+              "name": "held_count",
+              "type": "number",
+              "value": "={{ $('Classify Event').first().json.held_count }}"
+            },
+            {
+              "id": "r6",
+              "name": "http_status",
+              "type": "number",
+              "value": "={{ $json.statusCode }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000018",
+      "name": "Record Delivery Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2020,
+        280
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "outcome",
+              "type": "string",
+              "value": "delivery_failed"
+            },
+            {
+              "id": "f2",
+              "name": "action",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.action }}"
+            },
+            {
+              "id": "f3",
+              "name": "reason",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.reason }}"
+            },
+            {
+              "id": "f4",
+              "name": "fingerprint",
+              "type": "string",
+              "value": "={{ $('Classify Event').first().json.fingerprint }}"
+            },
+            {
+              "id": "f5",
+              "name": "held_count",
+              "type": "number",
+              "value": "={{ $('Classify Event').first().json.held_count }}"
+            },
+            {
+              "id": "f6",
+              "name": "http_status",
+              "type": "number",
+              "value": "={{ $json.statusCode }}"
+            },
+            {
+              "id": "f7",
+              "name": "note",
+              "type": "string",
+              "value": "Notification retries were exhausted. send_now and send_digest payloads are not automatically re-queued."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000019",
+      "name": "Record Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        480
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "o1",
+              "name": "outcome",
+              "type": "string",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "id": "o2",
+              "name": "action",
+              "type": "string",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "id": "o3",
+              "name": "reason",
+              "type": "string",
+              "value": "={{ $json.reason }}"
+            },
+            {
+              "id": "o4",
+              "name": "fingerprint",
+              "type": "string",
+              "value": "={{ $json.fingerprint }}"
+            },
+            {
+              "id": "o5",
+              "name": "held_count",
+              "type": "number",
+              "value": "={{ $json.held_count }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Alert": {
+      "main": [
+        [
+          {
+            "node": "Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flush Held Alerts": {
+      "main": [
+        [
+          {
+            "node": "Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Settings": {
+      "main": [
+        [
+          {
+            "node": "Classify Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Event": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification": {
+      "main": [
+        [
+          {
+            "node": "Notification Delivered?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notification Delivered?": {
+      "main": [
+        [
+          {
+            "node": "Record Delivery",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Delivery Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
