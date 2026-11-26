@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "item-store",
+  "display_name": "Item Store",
+  "version": "1.0.0",
+  "description": "Local JSON item store MCP server. Save, get, list, and search items on disk.",
+  "author": {
+    "name": "Quiet Hours Digest",
+    "url": "https://github.com/Crypto-Nobility/quiet-hours-digest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Crypto-Nobility/quiet-hours-digest.git"
+  },
+  "homepage": "https://github.com/Crypto-Nobility/quiet-hours-digest",
+  "documentation": "https://github.com/Crypto-Nobility/quiet-hours-digest/tree/main/mcp",
+  "support": "https://github.com/Crypto-Nobility/quiet-hours-digest/issues",
+  "license": "MIT",
+  "keywords": ["mcp", "item-store"],
+  "server": {
+    "type": "node",
+    "entry_point": "src/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/src/server.js"]
+    }
+  },
+  "tools": [
+    {
+      "name": "save_item",
+      "description": "Create an item or update it when the same id is provided. created_at is kept on update."
+    },
+    {
+      "name": "get_item",
+      "description": "Read one item by id."
+    },
+    {
+      "name": "list_items",
+      "description": "Return a list of stored items (id, title, tags, updated_at)."
+    },
+    {
+      "name": "search_items",
+      "description": "Find items whose id, title, body, or tags contain the query."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  }
+}
